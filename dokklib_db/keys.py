@@ -113,11 +113,12 @@ class SortKey(EntityKey):
 class PrefixSortKey(EntityKey):
     """Prefix only sort key to query relations."""
 
-    def __init__(self, entity_name: Type[EntityName]):
+    def __init__(self, entity_name: Type[EntityName], value: str = ''):
         """Initialize a PrefixSortKey instance.
 
         Args:
             entity_name: The entity type name.
+            value: Optional prefix value.
 
         """
-        super().__init__(entity_name, '')
+        super().__init__(entity_name, value)
