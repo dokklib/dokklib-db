@@ -7,7 +7,7 @@ with open('README.md') as f:
 setuptools.setup(
     name='dokklib_db',
     # TODO (abiro) get version from git tags
-    version='0.0.1',
+    version='0.0.2',
     author='Agost Biro',
     author_email='agost+dokklib_db@dokknet.com',
     description='DynamoDB Single Table Library',
@@ -19,6 +19,7 @@ setuptools.setup(
         'boto3>=1.10.34,<2',
         'botocore>=1.13.34,<2'
     ],
+    data_files=[('', ['LICENSE', 'NOTICE'])],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Programming Language :: Python :: 3.8',
