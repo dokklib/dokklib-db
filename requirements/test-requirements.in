@@ -1,0 +1,3 @@
+# Versions match Boto packages in default Python 3.8 AWS Lambda environment.
+boto3==1.10.34
+botocore==1.13.34

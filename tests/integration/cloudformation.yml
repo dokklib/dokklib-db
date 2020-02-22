@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Dokklib-DB integration test database
+
+Resources:
+  # DynamoDB single table pattern
+  SingleTable:
+    Type: AWS::DynamoDB::Table
+    # Make sure to change "Delete" to "Retain" on the lines below, if you use
+    # this for anything other than testing.
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub "${AWS::StackName}-SingleTable"
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        -
+          AttributeName: "PK"
+          KeyType: "HASH"
+        -
+          AttributeName: "SK"
+          KeyType: "RANGE"
+      AttributeDefinitions:
+        -
+          AttributeName: "PK"
+          AttributeType: "S"
+        -
+          AttributeName: "SK"
+          AttributeType: "S"
+      # If the item has no TTL, omit this property and it won't be deleted.
+      TimeToLiveSpecification:
+        AttributeName: "ExpiresAt"
+        Enabled: true
+      GlobalSecondaryIndexes:
+        # Inverse index for querying relational data.
+        -
+          IndexName: "GSI_1"
+          KeySchema:
+            -
+              AttributeName: "SK"
+              KeyType: "HASH"
+            -
+              AttributeName: "PK"
+              KeyType: "RANGE"
+          Projection:
+            ProjectionType: "KEYS_ONLY"
+  ReadWritePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Sid: ListAndDescribe
+            Action:
+              - dynamodb:List*
+              - dynamodb:DescribeReservedCapacity*
+              - dynamodb:DescribeLimits
+              - dynamodb:DescribeTimeToLive
+            Resource: "*"
+          -
+            Effect: Allow
+            Sid: SpecificTable
+            Action:
+              - dynamodb:BatchGet*
+              - dynamodb:DescribeStream
+              - dynamodb:DescribeTable
+              - dynamodb:Get*
+              - dynamodb:Query
+              - dynamodb:Scan
+
+              - dynamodb:BatchWrite*
+              - dynamodb:Delete*
+              - dynamodb:Update*
+              - dynamodb:PutItem
+            Resource: !Sub
+              - "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TableName}"
+              - TableName: !Ref SingleTable
+
+Outputs:
+  TableId:
+    Description: DynamoDB main table name
+    Value: !Ref SingleTable
+    Export:
+      Name: !Sub "${AWS::StackName}-SingleTable"
+  ReadWritePolicy:
+    Description: DynamoDB main table read&write policy ARN
+    Value: !Ref ReadWritePolicy
+    Export:
+      Name: !Sub "${AWS::StackName}-SingleTable-ReadWritePolicy"
