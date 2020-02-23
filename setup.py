@@ -7,13 +7,13 @@ with open('README.md') as f:
 setuptools.setup(
     name='dokklib_db',
     # TODO (abiro) get version from git tags
-    version='0.0.5',
+    version='0.0.6',
     author='Agost Biro',
     author_email='agost+dokklib_db@dokknet.com',
     description='DynamoDB Single Table Library',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/dokklib/dokklib-db',
+    url='https://dokklib.com/libs/db/',
     packages=['dokklib_db'],
     install_requires=[
         'boto3>=1.10.34,<2',
