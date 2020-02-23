@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Dokklib-DB integration test database
+Description: DynamoDB Single Table Resource
 
 Resources:
   # DynamoDB single table pattern
@@ -30,8 +30,8 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: "ExpiresAt"
         Enabled: true
+      # Inverse primary index for querying relational data.
       GlobalSecondaryIndexes:
-        # Inverse index for querying relational data.
         -
           IndexName: "GSI_1"
           KeySchema:
@@ -79,12 +79,12 @@ Resources:
 
 Outputs:
   TableId:
-    Description: DynamoDB main table name
+    Description: DynamoDB single table name
     Value: !Ref SingleTable
     Export:
       Name: !Sub "${AWS::StackName}-SingleTable"
   ReadWritePolicy:
-    Description: DynamoDB main table read&write policy ARN
+    Description: DynamoDB single table read&write policy ARN
     Value: !Ref ReadWritePolicy
     Export:
       Name: !Sub "${AWS::StackName}-SingleTable-ReadWritePolicy"
