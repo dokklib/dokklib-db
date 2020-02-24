@@ -151,7 +151,7 @@ class TableTestCaseMixin(ABC):
 class TestDeleteItem(TableTestCaseMixin, TestBase):
     def _call_test_fn(self, table_name='my-table'):
         table = Table(table_name)
-        return table.delete_item(self._pk, self._sk)
+        return table.delete(self._pk, self._sk)
 
     @property
     def _dynamo_method(self):
@@ -190,8 +190,8 @@ class TestQuery(QueryTestMixin, TestBase):
 class TestGetItem(QueryTestMixin, TestBase):
     def _call_test_fn(self, attributes=None):
         table = Table('my-table')
-        return table.get_item(self._pk, self._sk,
-                              attributes=attributes)
+        return table.get(self._pk, self._sk,
+                         attributes=attributes)
 
     @property
     def _dynamo_method(self):
@@ -249,7 +249,7 @@ class TestPutItem(PutItemTestMixin, TestBase):
     def _call_test_fn(self, table_name='my-table'):
         table = Table(table_name)
         put_arg = db.PutArg(self._pk, self._sk)
-        return table.put_item(put_arg)
+        return table._put_item(put_arg)
 
     @property
     def _dynamo_method(self):
@@ -317,7 +317,7 @@ class TestUpdateItem(TableTestCaseMixin, TestBase):
         }
         update_arg = db.UpdateArg(self._pk, self._sk,
                                   attr_updates=put_attributes)
-        return table.update_item(update_arg)
+        return table._update_item(update_arg)
 
     @property
     def _dynamo_method(self):

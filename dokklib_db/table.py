@@ -140,6 +140,11 @@ class Table:
         des_item = self._deserialize_dict(item)
         return self._strip_prefixes(des_item)
 
+    def _put_item(self, put_arg: PutArg) -> None:
+        kwargs = put_arg.get_kwargs(self.table_name, self.primary_index)
+        with self._dispatch_client_error():
+            self._client.put_item(**kwargs)
+
     def _query(self, query_arg: QueryArg) -> List[ItemResult]:
         args = query_arg.get_kwargs(self.table_name, self.primary_index)
         with self._dispatch_client_error():
@@ -147,8 +152,23 @@ class Table:
         items = query_res.get('Items', [])
         return [self._normalize_item(item) for item in items]
 
-    def delete_item(self, pk: PartitionKey, sk: SortKey,
-                    idempotent: bool = True) -> None:
+    def _update_item(self, update_arg: UpdateArg) -> None:
+        """Update an item or insert a new item if it doesn't exist.
+
+        Args:
+            update_arg: The update item op argument.
+
+        Raises:
+            dokklib_db.DatabaseError if there was a problem connecting to
+                DynamoDB.
+
+        """
+        kwargs = update_arg.get_kwargs(self.table_name, self.primary_index)
+        with self._dispatch_client_error():
+            self._client.update_item(**kwargs)
+
+    def delete(self, pk: PartitionKey, sk: SortKey,
+               idempotent: bool = True) -> None:
         """Delete an item from the table.
 
         Args:
@@ -162,9 +182,9 @@ class Table:
         with self._dispatch_client_error():
             self._client.delete_item(**kwargs)
 
-    def get_item(self, pk: PartitionKey, sk: SortKey,
-                 attributes: Optional[List[str]] = None,
-                 consistent: bool = False) -> Optional[ItemResult]:
+    def get(self, pk: PartitionKey, sk: SortKey,
+            attributes: Optional[List[str]] = None,
+            consistent: bool = False) -> Optional[ItemResult]:
         """Fetch an item by its primary key from the table.
 
         Args:
@@ -211,22 +231,30 @@ class Table:
 
         """
         put_arg = InsertArg(pk, sk, attributes=attributes)
-        self.put_item(put_arg)
+        self._put_item(put_arg)
 
-    def put_item(self, put_arg: PutArg) -> None:
+    # Type checks are sufficient to test this function, so it's excluded from
+    # unit test coverage.
+    def put(self, pk: PartitionKey, sk: SortKey,
+            attributes: Optional[Attributes] = None,
+            allow_overwrite: bool = True) -> None:  # pragma: no cover  # noqa 501
         """Insert a new item or replace an existing item.
 
         Args:
-            put_arg: The put item op argument.
+            pk: The partition key of the item.
+            sk: The sort key of the item.
+            attributes: Optional additional attributes of the item.
+            allow_overwrite: Whether to allow overwriting an existing item.
 
         Raises:
             dokklib_db.DatabaseError if there was a problem connecting to
                 DynamoDB.
 
         """
-        kwargs = put_arg.get_kwargs(self.table_name, self.primary_index)
-        with self._dispatch_client_error():
-            self._client.put_item(**kwargs)
+        put_arg = PutArg(pk, sk,
+                         attributes=attributes,
+                         allow_overwrite=allow_overwrite)
+        self._put_item(put_arg)
 
     # Type checks are sufficient to test this function, so it's excluded from
     # unit test coverage.
@@ -332,21 +360,6 @@ class Table:
         with self._dispatch_client_error():
             self._client.transact_write_items(TransactItems=transact_items)
 
-    def update_item(self, update_arg: UpdateArg) -> None:
-        """Update an item or insert a new item if it doesn't exist.
-
-        Args:
-            update_arg: The update item op argument.
-
-        Raises:
-            dokklib_db.DatabaseError if there was a problem connecting to
-                DynamoDB.
-
-        """
-        kwargs = update_arg.get_kwargs(self.table_name, self.primary_index)
-        with self._dispatch_client_error():
-            self._client.update_item(**kwargs)
-
     # Type checks are sufficient to test this function, so it's excluded from
     # unit test coverage.
     def update_attributes(self, pk: PartitionKey, sk: SortKey,
@@ -367,4 +380,4 @@ class Table:
 
         """
         update_arg = UpdateArg(pk, sk, attr_updates=attributes)
-        self.update_item(update_arg)
+        self._update_item(update_arg)

@@ -89,9 +89,9 @@ logging.info('Testing update_attributes')
 table.update_attributes(pk_alice, sk_alice, {'MyJson': {'A': 1}})
 
 logging.info('Testing get_item')
-res = table.get_item(pk_alice, sk_alice,
-                     attributes=['MyJson'],
-                     consistent=True)
+res = table.get(pk_alice, sk_alice,
+                attributes=['MyJson'],
+                consistent=True)
 assert res['MyJson']['A'] == 1, res
 
 logging.info('Testing transact_write_items')
@@ -111,7 +111,7 @@ res = table.query_prefix(pk_order1, db.PrefixSortKey(User),
                          global_index=db.InverseGlobalIndex())
 assert len(res) == 1, res
 
-logging.info('Testing delete_item')
-table.delete_item(pk_alice, sk_alice, idempotent=False)
+logging.info('Testing delete')
+table.delete(pk_alice, sk_alice, idempotent=False)
 
 logging.info('+++ Success +++')
