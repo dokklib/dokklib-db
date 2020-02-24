@@ -15,8 +15,8 @@ from dokklib_db.table import (
 from dokklib_db.index import (
     GlobalIndex,
     GlobalSecondaryIndex,
-    PrimaryGlobalIndex,
-    InverseGlobalIndex
+    InversePrimaryIndex,
+    PrimaryGlobalIndex
 )
 from dokklib_db.keys import (
     AnySortKey,

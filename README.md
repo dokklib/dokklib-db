@@ -57,7 +57,7 @@ table.insert(pk_bob, sk_group1)
 pk_group = db.PartitionKey(Group, 'group1')
 user_prefix = db.PrefixSortKey(User)
 group_members = table.query_prefix(pk_group, user_prefix, 
-    global_index=db.InverseGlobalIndex())
+    global_index=db.InversePrimaryIndex())
 
 print(group_members)
 # [{'PK': 'alice'}, {'PK': 'bob'}]

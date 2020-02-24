@@ -44,7 +44,7 @@ class PrimaryGlobalIndex(GlobalIndex):
         return 'SK'
 
 
-class InverseGlobalIndex(GlobalSecondaryIndex):
+class InversePrimaryIndex(GlobalSecondaryIndex):
     """Inverted global secondary index."""
 
     @property

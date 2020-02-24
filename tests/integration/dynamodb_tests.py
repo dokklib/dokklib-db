@@ -108,7 +108,7 @@ assert len(res) == 2, res
 
 logging.info('Testing query_prefix on inverse index')
 res = table.query_prefix(pk_order1, db.PrefixSortKey(User),
-                         global_index=db.InverseGlobalIndex())
+                         global_index=db.InversePrimaryIndex())
 assert len(res) == 1, res
 
 logging.info('Testing delete')

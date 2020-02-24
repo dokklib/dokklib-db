@@ -222,7 +222,7 @@ class TestQueryPrefix(QueryTestMixin, TestBase):
         self.assertEqual('(#n0 = :v0 AND begins_with(#n1, :v1))', kc)
 
     def test_global_index(self):
-        index = db.InverseGlobalIndex()
+        index = db.InversePrimaryIndex()
         self._call_test_fn(global_index=index)
         kwargs = self._dynamo_method.call_args.kwargs
         attr_names = kwargs['ExpressionAttributeNames']
@@ -230,7 +230,7 @@ class TestQueryPrefix(QueryTestMixin, TestBase):
         self.assertEqual(attr_names['#n1'], index.sort_key)
 
     def test_defaults_to_global_index_sk_if_provided(self):
-        index = db.InverseGlobalIndex()
+        index = db.InversePrimaryIndex()
         self._call_test_fn(global_index=index)
         kwargs = self._dynamo_method.call_args.kwargs
         self.assertEqual(kwargs['ProjectionExpression'], index.sort_key)
