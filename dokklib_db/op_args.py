@@ -1,13 +1,13 @@
 """DynamoDB operation arguments."""
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, List, Literal, Mapping, Optional, Union, cast
+from typing import Any, List, Literal, Mapping, Optional, Union
 
 import boto3.dynamodb.conditions as cond
-from boto3.dynamodb.types import TypeSerializer
 
 from dokklib_db.index import GlobalIndex, GlobalSecondaryIndex
-from dokklib_db.keys import PartitionKey, SortKey
+from dokklib_db.keys import PartitionKey, PrimaryKey, SortKey
+from dokklib_db.serializer import Serializer
 
 _DynamoValue = Union[str, bool]
 
@@ -27,7 +27,7 @@ class OpArg(ABC):
 
     def __init__(self) -> None:
         """Initialize an OpArg instance."""
-        self._serializer = TypeSerializer()
+        self._serializer = Serializer()
 
     @property
     @abstractmethod
@@ -53,25 +53,12 @@ class OpArg(ABC):
         """
         raise NotImplementedError
 
-    def _serialize_val(self, val: Any) -> Kwargs:
-        """Serialize a value to a DynamoDB value."""
-        return cast(Kwargs, self._serializer.serialize(val))
-
-    def _serialize_dict(self, item: Attributes) -> Kwargs:
-        """Serialize a dictionary while preserving its top level keys."""
-        return {k: self._serialize_val(v) for k, v in item.items()}
-
-    def _serialize_primary_keys(self, primary_index: GlobalIndex,
-                                pk: PartitionKey, sk: SortKey) \
+    def _serialize_primary_key(self, primary_index: GlobalIndex,
+                               pk: PartitionKey, sk: SortKey) \
             -> Mapping[str, Mapping[str, _DynamoValue]]:
         """Serialize composite key."""
-        pk_name = primary_index.partition_key
-        sk_name = primary_index.sort_key
-        item: Attributes = {
-            pk_name: str(pk),
-            sk_name: str(sk)
-        }
-        return self._serialize_dict(item)
+        primary_key = PrimaryKey(pk, sk)
+        return primary_key.serialize(primary_index)
 
 
 class DeleteArg(OpArg):
@@ -110,7 +97,7 @@ class DeleteArg(OpArg):
             The key-word arguments.
 
         """
-        key = self._serialize_primary_keys(primary_index, self._pk, self._sk)
+        key = self._serialize_primary_key(primary_index, self._pk, self._sk)
         kwargs = {
             'TableName': table_name,
             'Key': key
@@ -162,13 +149,14 @@ class GetArg(OpArg):
             The key-word arguments.
 
         """
-        key = self._serialize_primary_keys(primary_index, self._pk, self._sk)
+        key = self._serialize_primary_key(primary_index, self._pk, self._sk)
         kwargs = {
             'TableName': table_name,
             'Key': key,
             'ConsistentRead': self._consistent
         }
         if self._attributes:
+            # TODO (abiro) convert inputs to expression attribute names
             kwargs['ProjectionExpression'] = ','.join(self._attributes)
 
         return kwargs
@@ -210,9 +198,9 @@ class PutArg(OpArg):
 
     def _get_dynamo_item(self, primary_index: GlobalIndex) \
             -> Mapping[str, Mapping[str, _DynamoValue]]:
-        keys_item = self._serialize_primary_keys(primary_index,
-                                                 self._pk,
-                                                 self._sk)
+        keys_item = self._serialize_primary_key(primary_index,
+                                                self._pk,
+                                                self._sk)
 
         item: Attributes = {
             'CreatedAt': self._iso_now()
@@ -221,7 +209,7 @@ class PutArg(OpArg):
             # `item` keys overwrite `_attributes` keys
             item = {**self._attributes, **item}
 
-        dynamo_item = self._serialize_dict(item)
+        dynamo_item = self._serializer.serialize_dict(item)
         return {**dynamo_item, **keys_item}
 
     def get_kwargs(self, table_name: str, primary_index: GlobalIndex) \
@@ -326,9 +314,9 @@ class QueryArg(OpArg):
         """
         return 'Query'
 
-    def _serialize_primary_keys(self, primary_index: GlobalIndex,
-                                pk: PartitionKey,
-                                sk: SortKey) \
+    def _serialize_primary_key(self, primary_index: GlobalIndex,
+                               pk: PartitionKey,
+                               sk: SortKey) \
             -> Mapping[str, Mapping[str, _DynamoValue]]:
         """Serialize composite key."""
         # Using this inherited method in QueryArg would be a mistake, because
@@ -348,7 +336,7 @@ class QueryArg(OpArg):
 
         """
         kc = self._serialize_key_condition(self._key_cond)
-        kc_value_placeholders = self._serialize_dict(
+        kc_value_placeholders = self._serializer.serialize_dict(
             kc.attribute_value_placeholders)
         kwargs = {
             'TableName': table_name,
@@ -360,6 +348,7 @@ class QueryArg(OpArg):
             'Limit': self._limit
         }
         if self._attributes:
+            # TODO (abiro) convert inputs to expression attribute names
             kwargs['ProjectionExpression'] = ','.join(self._attributes)
         else:
             kwargs['ProjectionExpression'] = 'SK'
@@ -412,7 +401,7 @@ class UpdateArg(OpArg):
         for k, v in item.items():
             res[k] = {
                 'Action': 'PUT',
-                'Value': self._serialize_val(v)
+                'Value': self._serializer.serialize_val(v)
             }
         return res
 
@@ -428,7 +417,7 @@ class UpdateArg(OpArg):
             The key-word arguments.
 
         """
-        keys = self._serialize_primary_keys(primary_index, self._pk, self._sk)
+        keys = self._serialize_primary_key(primary_index, self._pk, self._sk)
         attr_updates = self._get_attr_updates()
         kwargs = {
             'TableName': table_name,

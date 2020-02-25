@@ -1,20 +1,21 @@
 import copy
 import re
 from contextlib import contextmanager
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional
+from typing import Any, Dict, Iterable, Iterator, List, Mapping, NamedTuple, \
+    Optional, Tuple, Union, cast
 
 import boto3
 import boto3.dynamodb.conditions as cond
-from boto3.dynamodb.types import TypeDeserializer
 
 import botocore.client
 from botocore.exceptions import ClientError
 
 from dokklib_db.index import GlobalIndex, GlobalSecondaryIndex, \
     PrimaryGlobalIndex
-from dokklib_db.keys import PartitionKey, PrefixSortKey, SortKey
+from dokklib_db.keys import PartitionKey, PrefixSortKey, PrimaryKey, SortKey
 from dokklib_db.op_args import Attributes, DeleteArg, GetArg, InsertArg, \
     OpArg, PutArg, QueryArg, UpdateArg
+from dokklib_db.serializer import Serializer
 
 
 ItemResult = Mapping[str, Any]
@@ -44,6 +45,13 @@ class TransactionError(DatabaseError):
 
 class TransactionConflict(TransactionError):
     """The transaction failed due to conflict from an other transaction."""
+
+
+class BatchGetResult(NamedTuple):
+    """Result from a `Table.batch_get` operation."""
+
+    items: List[ItemResult]
+    unprocessed_keys: List[PrimaryKey]
 
 
 class Table:
@@ -111,7 +119,7 @@ class Table:
             self._primary_index = primary_index
         else:
             self._primary_index = PrimaryGlobalIndex()
-        self._deserializer = TypeDeserializer()
+        self._serializer = Serializer()
 
         # The boto objects are lazy-initialzied. Connections are not created
         # until the first request.
@@ -132,13 +140,13 @@ class Table:
         """Get the DynamoDB table name."""
         return self._table_name
 
-    def _deserialize_dict(self, item: Dict[str, Any]) -> Dict[str, Any]:
-        """Deserialize a dictionary while preserving its top level keys."""
-        return {k: self._deserializer.deserialize(v) for k, v in item.items()}
-
     def _normalize_item(self, item: Dict[str, Any]) -> ItemResult:
-        des_item = self._deserialize_dict(item)
+        des_item = self._serializer.deserialize_dict(item)
         return self._strip_prefixes(des_item)
+
+    def _normalize_items(self, items: List[Dict[str, Any]]) \
+            -> List[ItemResult]:
+        return [self._normalize_item(item) for item in items]
 
     def _put_item(self, put_arg: PutArg) -> None:
         kwargs = put_arg.get_kwargs(self.table_name, self.primary_index)
@@ -150,7 +158,7 @@ class Table:
         with self._dispatch_client_error():
             query_res = self._client.query(**args)
         items = query_res.get('Items', [])
-        return [self._normalize_item(item) for item in items]
+        return self._normalize_items(items)
 
     def _update_item(self, update_arg: UpdateArg) -> None:
         """Update an item or insert a new item if it doesn't exist.
@@ -166,6 +174,75 @@ class Table:
         kwargs = update_arg.get_kwargs(self.table_name, self.primary_index)
         with self._dispatch_client_error():
             self._client.update_item(**kwargs)
+
+    def batch_get(self, keys: Iterable[PrimaryKey],
+                  attributes: Optional[List[str]] = None,
+                  consistent: bool = False) -> BatchGetResult:
+        """Fetch multiple items by their primary keys from the table.
+
+        Note that the Dynamodb BatchGetItem API operation doesn't return items
+        in order, that's why the primary key (PK and SK) of the item is always
+        included in the Table.batch_get results.
+
+        Further, note that while it's possible to make indiviual reads in
+        strongly consistent, the returned snapshot has no isolation guarantees.
+        If you need a consistent snapshot of multiple items in the database,
+        you should use a transaction.
+
+        Doesn't handle `UnprocessedKeys` in response.
+
+        Args:
+            keys: The primary keys of the items to get.
+            attributes: The attributes to get. Returns all attributes if
+                omitted. The partition and sort keys are always included even
+                if not specified here.
+            consistent: Whether the read is strongly consistent or not.
+
+        Returns:
+            The item if it exists.
+
+        """
+        attr_s = set(attributes or [])
+        attr_s.add(self.primary_index.partition_key)
+        attr_s.add(self.primary_index.sort_key)
+        # TODO (abiro) convert inputs to expression attribute names
+        proj_expr = ','.join(attr_s)
+
+        key_map: Dict[Union[PrimaryKey, Tuple[str, str]], PrimaryKey] = {}
+        key_items = []
+        for key in keys:
+            key_map[key] = key
+            ser_key = key.serialize(self.primary_index)
+            key_items.append(ser_key)
+
+        request_items = {
+            self.table_name: {
+                'Keys': key_items,
+                'ProjectionExpression': proj_expr,
+                'ConsistentRead': consistent
+            }
+        }
+        with self._dispatch_client_error():
+            res = self._client.batch_get_item(RequestItems=request_items)
+
+        responses = res.get('Responses', {})
+        items = responses.get(self.table_name, [])
+        norm_items = self._normalize_items(items)
+
+        # Map unprocessed keys back to original `PrimaryKey` arguments.
+        unproc = res.get('UnprocessedKeys', {})
+        unproc_items = unproc.get(self.table_name, {})
+        unproc_keys = []
+        for item in unproc_items.get('Keys', []):
+            pk_dynamo = item[self.primary_index.partition_key]
+            sk_dynamo = item[self.primary_index.sort_key]
+            pk_val = self._serializer.deserialize_val(pk_dynamo)
+            sk_val = self._serializer.deserialize_val(sk_dynamo)
+            key_tuple = (cast(str, pk_val), cast(str, sk_val))
+            key = key_map[key_tuple]
+            unproc_keys.append(key)
+
+        return BatchGetResult(items=norm_items, unprocessed_keys=unproc_keys)
 
     def delete(self, pk: PartitionKey, sk: SortKey,
                idempotent: bool = True) -> None:
@@ -341,8 +418,6 @@ class Table:
 
     def transact_write_items(self, args: Iterable[OpArg]) -> None:
         """Write multiple items in a transaction.
-
-        Note
 
         Args:
             args: Write OP args.

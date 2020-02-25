@@ -23,11 +23,13 @@ from dokklib_db.keys import (
     EntityName,
     PartitionKey,
     PrefixSortKey,
+    PrimaryKey,
     SortKey,
 )
 from dokklib_db.op_args import (
     Attributes,
     DeleteArg,
+    GetArg,
     InsertArg,
     OpArg,
     PutArg,

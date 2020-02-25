@@ -89,7 +89,7 @@ class TestInit(TestBase):
         table = Table('my-table')
         self.assertEqual(table._client, boto3.client.return_value)
 
-    def test_primary_indext(self):
+    def test_primary_index(self):
         pk_name = 'my-pk-name'
         sk_name = 'my-sk-name'
 
@@ -146,6 +146,83 @@ class TableTestCaseMixin(ABC):
                                                       'OpName')
         with self.assertRaises(db.CapacityError):
             self._call_test_fn()
+
+
+class TestBatchGet(TableTestCaseMixin, TestBase):
+    def setUp(self):
+        super().setUp()
+        self._pk_2 = db.PartitionKey(User, 'bar@example.com')
+        self._sk_2 = db.SortKey(Subscription, 'docs.bar.com')
+        self._keys = [
+            db.PrimaryKey(self._pk, self._sk),
+            db.PrimaryKey(self._pk_2, self._sk_2)
+        ]
+        self._table_name = 'my-table'
+        self._table = Table(self._table_name)
+
+    def _call_test_fn(self, attributes=None, consistent=False):
+        attributes = attributes or []
+        return self._table.batch_get(self._keys,
+                                     attributes=attributes,
+                                     consistent=consistent)
+
+    def _get_call_arg(self, name, consistent=False, attributes=None):
+        self._call_test_fn(attributes=attributes, consistent=consistent)
+        kwargs = self._dynamo_method.call_args.kwargs
+        return kwargs['RequestItems'][self._table_name][name]
+
+    def _get_attributes_call_arg(self, attributes=None):
+        pe = self._get_call_arg('ProjectionExpression', attributes)
+        attributes = pe.split(',')
+        return attributes
+
+    @property
+    def _dynamo_method(self):
+        return self._client.batch_get_item
+
+    def test_keys(self):
+        keys = self._get_call_arg('Keys', consistent=True)
+        self.assertEqual(len(keys), 2)
+        for i, key in enumerate(keys):
+            exp = self._keys[i].serialize(self._table.primary_index)
+            self.assertDictEqual(keys[i], exp)
+
+    def test_consistent(self):
+        consistent = self._get_call_arg('ConsistentRead', consistent=True)
+        self.assertTrue(consistent)
+
+    def test_retrieves_keys(self):
+        attributes = self._get_attributes_call_arg(['foo'])
+        self.assertTrue(set(attributes).issuperset({'PK', 'SK'}))
+
+    def test_retrieves_keys_default(self):
+        attributes = self._get_attributes_call_arg()
+        self.assertSetEqual(set(attributes), {'PK', 'SK'})
+
+    def test_results(self):
+        key_1_ser = self._keys[0].serialize(self._table.primary_index)
+        key_2_ser = self._keys[1].serialize(self._table.primary_index)
+        self._dynamo_method.return_value = {
+            'Responses': {
+                self._table_name: [
+                    key_1_ser
+                ]
+            },
+            'UnprocessedKeys': {
+                self._table_name: {
+                    'Keys': [
+                        key_2_ser
+                    ]
+                }
+            }
+        }
+        res = self._call_test_fn()
+        self.assertEqual(len(res.items), 1)
+        self.assertEqual(res.items[0]['PK'], self._pk.value)
+        self.assertEqual(res.items[0]['SK'], self._sk.value)
+
+        self.assertEqual(len(res.unprocessed_keys), 1)
+        self.assertEqual(res.unprocessed_keys[0], self._keys[1])
 
 
 class TestDeleteItem(TableTestCaseMixin, TestBase):

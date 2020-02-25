@@ -68,18 +68,6 @@ class TestDeleteArg(KeyTestMixin, OpTestMixin, TestBase):
         kwargs = self._get_kwargs()
         self.assertNotIn('ConditionExpression', kwargs)
 
-    def test_serialize_dict(self):
-        d = {
-            'foo': False,
-            'bar': 1
-        }
-        res = self._op_arg._serialize_dict(d)
-        exp = {
-            'foo': {'BOOL': False},
-            'bar': {'N': '1'}
-        }
-        self.assertDictEqual(res, exp)
-
 
 class TestGetArg(ConsistencyTestMixin, KeyTestMixin, OpTestMixin, TestBase):
     def setUp(self):

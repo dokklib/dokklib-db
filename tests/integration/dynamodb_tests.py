@@ -102,6 +102,14 @@ table.transact_write_items([
     db.InsertArg(pk_book, sk_order2)
 ])
 
+logging.info('Testing batch_get')
+res = table.batch_get([
+    db.PrimaryKey(pk_alice, sk_order1),
+    db.PrimaryKey(pk_book, sk_order1),
+    db.PrimaryKey(pk_alice, sk_order2),
+], consistent=True)
+assert len(res.items) == 3, res
+
 logging.info('Testing query_prefix')
 res = table.query_prefix(pk_alice, db.PrefixSortKey(Order))
 assert len(res) == 2, res

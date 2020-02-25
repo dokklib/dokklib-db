@@ -13,8 +13,10 @@ sort key.
 
 """
 from abc import ABC
-from typing import Any, Dict, List, Optional, Type, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Type, Union, cast
 
+from dokklib_db.index import GlobalIndex
+from dokklib_db.serializer import Serializer
 
 AnySortKey = Union['SortKey', 'PrefixSortKey']
 
@@ -85,6 +87,10 @@ class EntityKey(ABC):
         # Eg. ENTITY#value
         return f'{self._prefix}{self._value}'
 
+    def __hash__(self) -> int:
+        """Get the hash value."""
+        return hash(str(self))
+
     def __eq__(self, other: Any) -> bool:
         """Compare semantic equality."""
         return str(self) == str(other)
@@ -122,3 +128,56 @@ class PrefixSortKey(EntityKey):
 
         """
         super().__init__(entity_name, value)
+
+
+class PrimaryKey:
+    """Primary (composite) key of a DynamoDB item."""
+
+    def __init__(self, partition_key: PartitionKey, sort_key: SortKey):
+        """Initialize a PrimaryKey instance."""
+        super().__init__()
+
+        self._pk = partition_key
+        self._sk = sort_key
+        self._serializer = Serializer()
+
+    def __hash__(self) -> int:
+        return hash(self._tuple)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, self.__class__):
+            return self._tuple == other._tuple
+        else:
+            return self._tuple == other
+
+    @property
+    def _tuple(self) -> Tuple[str, str]:
+        return str(self.partition_key), str(self.sort_key)
+
+    @property
+    def partition_key(self) -> PartitionKey:  # pragma: no cover
+        """Get the partition key."""
+        return self._pk
+
+    @property
+    def sort_key(self) -> SortKey:  # pragma: no cover
+        """Get the sort key."""
+        return self._sk
+
+    def serialize(self, global_index: GlobalIndex) -> Dict[str, Any]:
+        """Serialize the primary key to a DynamoDB item.
+
+        Args:
+            global_index: The global index where this key will be used.
+
+        Returns:
+            The serialized key.
+
+        """
+        pk_name = global_index.partition_key
+        sk_name = global_index.sort_key
+        item = {
+            pk_name: str(self.partition_key),
+            sk_name: str(self.sort_key)
+        }
+        return self._serializer.serialize_dict(item)
