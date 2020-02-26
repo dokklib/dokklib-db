@@ -7,6 +7,8 @@ jobs:
 
     runs-on: ubuntu-latest
     strategy:
+      # Integration tests write to the same table, hence 1 max in parallel
+      max-parallel: 1
       matrix:
         python-version: [3.6, 3.7, 3.8]
 
