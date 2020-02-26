@@ -73,9 +73,13 @@ Resources:
               - dynamodb:Delete*
               - dynamodb:Update*
               - dynamodb:PutItem
-            Resource: !Sub
-              - "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TableName}"
-              - TableName: !Ref SingleTable
+            Resource:
+              - !Sub
+                - "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TableName}"
+                - TableName: !Ref SingleTable
+              - !Sub
+                - "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TableName}/index/GSI_1"
+                - TableName: !Ref SingleTable
 
 Outputs:
   TableId:
