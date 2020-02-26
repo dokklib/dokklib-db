@@ -19,7 +19,7 @@ Install with:
 
 `pip install dokklib-db`
 
-Dokklib-DB support Python 3.6 and later.
+Requires Python 3.6 and later.
 
 ## Example usage
 
