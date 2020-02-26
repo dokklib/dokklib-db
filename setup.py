@@ -17,12 +17,15 @@ setuptools.setup(
     packages=['dokklib_db'],
     install_requires=[
         'boto3>=1.10.34,<2',
-        'botocore>=1.13.34,<2'
+        'botocore>=1.13.34,<2',
+        'typing-extensions>=3.7.2,<4'
     ],
     data_files=[('', ['LICENSE', 'NOTICE'])],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.6',
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
         'Topic :: Database'

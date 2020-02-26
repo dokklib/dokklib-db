@@ -5,7 +5,7 @@
 # `conda activate dokklib_db`
 name: dokklib_db
 dependencies:
-  - python=3.8
+  - python=3.6
   - ipython
   - pip
   - pip:

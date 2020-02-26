@@ -168,7 +168,7 @@ class TestBatchGet(TableTestCaseMixin, TestBase):
 
     def _get_call_arg(self, name, consistent=False, attributes=None):
         self._call_test_fn(attributes=attributes, consistent=consistent)
-        kwargs = self._dynamo_method.call_args.kwargs
+        _, kwargs = self._dynamo_method.call_args
         return kwargs['RequestItems'][self._table_name][name]
 
     def _get_attributes_call_arg(self, attributes=None):
@@ -295,13 +295,14 @@ class TestQueryPrefix(QueryTestMixin, TestBase):
 
     def test_correct_key(self):
         self._call_test_fn()
-        kc = self._dynamo_method.call_args.kwargs['KeyConditionExpression']
+        _, kwargs = self._dynamo_method.call_args
+        kc = kwargs['KeyConditionExpression']
         self.assertEqual('(#n0 = :v0 AND begins_with(#n1, :v1))', kc)
 
     def test_global_index(self):
         index = db.InversePrimaryIndex()
         self._call_test_fn(global_index=index)
-        kwargs = self._dynamo_method.call_args.kwargs
+        _, kwargs = self._dynamo_method.call_args
         attr_names = kwargs['ExpressionAttributeNames']
         self.assertEqual(attr_names['#n0'], index.partition_key)
         self.assertEqual(attr_names['#n1'], index.sort_key)
@@ -309,7 +310,7 @@ class TestQueryPrefix(QueryTestMixin, TestBase):
     def test_defaults_to_global_index_sk_if_provided(self):
         index = db.InversePrimaryIndex()
         self._call_test_fn(global_index=index)
-        kwargs = self._dynamo_method.call_args.kwargs
+        _, kwargs = self._dynamo_method.call_args
         self.assertEqual(kwargs['ProjectionExpression'], index.sort_key)
 
 
@@ -366,9 +367,10 @@ class TestTransactWriteItems(PutItemTestMixin, TestBase):
 
         self._call_test_fn(items=[arg_mock], table_name=table_name)
         arg_mock.get_kwargs.assert_called_once()
-        self.assertEqual(arg_mock.get_kwargs.call_args.args[0], table_name)
-        self.assertDictEqual(self._dynamo_method.call_args.kwargs,
-                             {'TransactItems': [expected_item]})
+        args, _ = arg_mock.get_kwargs.call_args
+        self.assertEqual(args[0], table_name)
+        _, kwargs = self._dynamo_method.call_args
+        self.assertDictEqual(kwargs, {'TransactItems': [expected_item]})
 
     def test_handles_transaction_failed(self):
         self._setup_error()

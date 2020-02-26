@@ -1,9 +1,11 @@
 """DynamoDB operation arguments."""
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, List, Literal, Mapping, Optional, Union
+from typing import Any, List, Mapping, Optional, Union
 
 import boto3.dynamodb.conditions as cond
+
+from typing_extensions import Literal
 
 from dokklib_db.index import GlobalIndex, GlobalSecondaryIndex
 from dokklib_db.keys import PartitionKey, PrimaryKey, SortKey

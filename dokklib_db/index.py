@@ -1,7 +1,8 @@
 # Type checks are enough to test this module.
 # pragma: no cover
 from abc import ABC, abstractmethod
-from typing import Literal
+
+from typing_extensions import Literal
 
 
 class GlobalIndex(ABC):
