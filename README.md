@@ -1,5 +1,7 @@
 # Dokklib-DB
 
+![CI](https://github.com/dokklib/dokklib-db/workflows/CI/badge.svg)
+
 Dokklib-DB is a Python library for the DynamoDB single table pattern.
 
 ## Features
