@@ -5,15 +5,20 @@
 testing table. !!!
 """
 import logging
+import os
 
 import boto3
 
 import dokklib_db as db
 
+# Debug region error in CI
+print('AWS_DEFAULT_REGION', os.environ.get('AWS_DEFAULT_REGION'))
 
 TABLE_NAME = 'DokklibDB-IntegrationTest-SingleTable'
 
 logging.basicConfig(level=logging.INFO)
+region = os.environ.get('AWS_DEFAULT_REGION')
+logging.info(f'AWS_DEFAULT_REGION: {region}')
 
 
 class Order(db.EntityName):
