@@ -15,6 +15,7 @@ setuptools.setup(
     long_description_content_type='text/markdown',
     url='https://dokklib.com/libs/db/',
     packages=['dokklib_db'],
+    python_requires='>=3.6',
     install_requires=[
         'boto3>=1.10.34,<2',
         'botocore>=1.13.34,<2',
