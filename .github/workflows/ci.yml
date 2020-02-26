@@ -1,4 +1,4 @@
-name: Continous integration (CI)
+name: Continuous integration (CI)
 
 on: [push]
 
