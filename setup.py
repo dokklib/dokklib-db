@@ -14,6 +14,8 @@ setuptools.setup(
     url='https://dokklib.com/libs/db/',
     packages=['dokklib_db'],
     use_scm_version=True,
+    # Needed to let mypy use package for type hints
+    zip_safe=False,
     setup_requires=['setuptools_scm'],
     python_requires='>=3.6',
     install_requires=[
