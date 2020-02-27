@@ -21,7 +21,6 @@ setuptools.setup(
         'botocore>=1.13.34,<2',
         'typing-extensions>=3.7.2,<4'
     ],
-    data_files=[('', ['LICENSE', 'NOTICE'])],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Programming Language :: Python :: 3.8',
