@@ -17,8 +17,6 @@ setuptools.setup(
     setup_requires=['setuptools_scm'],
     python_requires='>=3.6',
     install_requires=[
-        'boto3>=1.10.34,<2',
-        'botocore>=1.13.34,<2',
         'typing-extensions>=3.7.2,<4'
     ],
     classifiers=[
