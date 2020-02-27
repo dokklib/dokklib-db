@@ -16,6 +16,7 @@ setuptools.setup(
     use_scm_version=True,
     # Needed to let mypy use package for type hints
     zip_safe=False,
+    package_data={"dokklib_db": ["py.typed"]},
     setup_requires=['setuptools_scm'],
     python_requires='>=3.6',
     install_requires=[
