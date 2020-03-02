@@ -1,8 +1,6 @@
 # Dokklib-DB
 
-[![Join the chat at https://gitter.im/dokklib/dokklib-db](https://badges.gitter.im/dokklib/dokklib-db.svg)](https://gitter.im/dokklib/dokklib-db?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
-![CI](https://github.com/dokklib/dokklib-db/workflows/CI/badge.svg)
+![CI](https://github.com/dokklib/dokklib-db/workflows/CI/badge.svg) [![Join the chat at https://gitter.im/dokklib/dokklib-db](https://badges.gitter.im/dokklib/dokklib-db.svg)](https://gitter.im/dokklib/dokklib-db?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 Dokklib-DB is a Python library for the DynamoDB single table pattern.
 
