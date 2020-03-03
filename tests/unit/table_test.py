@@ -131,11 +131,6 @@ class TableTestCaseMixin(ABC):
         self._sk = db.SortKey(Subscription, 'docs.example.com')
         self._sk_prefix = db.PrefixSortKey(Subscription)
 
-    def test_handlers_client_error(self):
-        self._dynamo_method.side_effect = ClientError({}, 'OpName')
-        with self.assertRaises(db.DatabaseError):
-            self._call_test_fn()
-
     def test_handlers_throughput_error(self):
         error_response = {
             'Error': {
@@ -144,7 +139,7 @@ class TableTestCaseMixin(ABC):
         }
         self._dynamo_method.side_effect = ClientError(error_response,
                                                       'OpName')
-        with self.assertRaises(db.CapacityError):
+        with self.assertRaises(db.errors.ProvisionedThroughputExceededException):  # noqa 501
             self._call_test_fn()
 
 
@@ -319,7 +314,7 @@ class PutItemTestMixin(TableTestCaseMixin):
         error_response = {'Error': {'Code': 'ConditionalCheckFailedException'}}
         self._dynamo_method.side_effect = ClientError(error_response,
                                                       'PutItem')
-        with self.assertRaises(db.ConditionalCheckFailedError):
+        with self.assertRaises(db.errors.ConditionalCheckFailedException):
             self._call_test_fn()
 
 
@@ -374,17 +369,7 @@ class TestTransactWriteItems(PutItemTestMixin, TestBase):
 
     def test_handles_transaction_failed(self):
         self._setup_error()
-        with self.assertRaises(db.TransactionError):
-            self._call_test_fn()
-
-    def test_handles_conditional_check_failed(self):
-        self._setup_error('ConditionalCheckFailed')
-        with self.assertRaises(db.ConditionalCheckFailedError):
-            self._call_test_fn()
-
-    def test_handles_transaction_conflict(self):
-        self._setup_error('TransactionConflict')
-        with self.assertRaises(db.TransactionConflict):
+        with self.assertRaises(db.errors.TransactionCanceledException):
             self._call_test_fn()
 
 

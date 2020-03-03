@@ -2,14 +2,15 @@ import copy
 import re
 from contextlib import contextmanager
 from typing import Any, Dict, Iterable, Iterator, List, Mapping, NamedTuple, \
-    Optional, Tuple, Union, cast
+    Optional, Tuple, Type, Union, cast
 
 import boto3
 import boto3.dynamodb.conditions as cond
 
 import botocore.client
-from botocore.exceptions import ClientError
+import botocore.exceptions as botoex
 
+import dokklib_db.errors as err
 from dokklib_db.index import GlobalIndex, GlobalSecondaryIndex, \
     PrimaryGlobalIndex
 from dokklib_db.keys import PartitionKey, PrefixSortKey, PrimaryKey, SortKey
@@ -19,32 +20,6 @@ from dokklib_db.serializer import Serializer
 
 
 ItemResult = Mapping[str, Any]
-
-
-class DatabaseError(Exception):
-    """Raised when a DynamoDB error occurred without a more specific reason.
-
-    All other errors raised by `dokklib_db.Table` inherit from this.
-    """
-
-
-class CapacityError(DatabaseError):
-    """Raised when a ProvisionedThroughputExceededException is raised."""
-
-
-class ConditionalCheckFailedError(DatabaseError):
-    """Raised when a conditional check failed.
-
-    Eg. when trying to insert an item that already exists.
-    """
-
-
-class TransactionError(DatabaseError):
-    """Raised when a transaction failed without a more specific reason."""
-
-
-class TransactionConflict(TransactionError):
-    """The transaction failed due to conflict from an other transaction."""
 
 
 class BatchGetResult(NamedTuple):
@@ -61,28 +36,9 @@ class Table:
     """
 
     @staticmethod
-    @contextmanager
-    def _dispatch_client_error() -> Iterator[None]:
-        """Raise appropriate exception based on ClientError code."""
-        try:
-            yield None
-        except ClientError as e:
-            db_error = e.response.get('Error', {})
-            code = db_error.get('Code')
-            if code == 'ConditionalCheckFailedException':
-                raise ConditionalCheckFailedError(e)
-            if code == 'ProvisionedThroughputExceededException':
-                raise CapacityError(e)
-            elif code == 'TransactionCanceledException':
-                message = db_error.get('Message', '')
-                if 'ConditionalCheckFailed' in message:
-                    raise ConditionalCheckFailedError(e)
-                elif 'TransactionConflict' in message:
-                    raise TransactionConflict(e)
-                else:
-                    raise TransactionError(e)
-            else:
-                raise DatabaseError(e)
+    def _get_error_code(error: botoex.ClientError) -> str:
+        db_error = error.response.get('Error', {})
+        return cast(str, db_error.get('Code', 'None'))
 
     @staticmethod
     def _remove_entity_prefix(string: str) -> str:
@@ -93,6 +49,42 @@ class Table:
             return match.group(1)
         else:
             return string
+
+    @classmethod
+    @contextmanager
+    def _dispatch_transaction_error(cls, op_args: List[OpArg]) \
+            -> Iterator[None]:
+        """Raise appropriate exception based on ClientError code."""
+        try:
+            yield None
+        except botoex.ClientError as e:
+            code = cls._get_error_code(e)
+            if code == 'TransactionCanceledException':
+                raise err.TransactionCanceledException(op_args,
+                                                       str(e),
+                                                       e.response,
+                                                       e.operation_name)
+            else:
+                raise cls._get_exception(e)
+
+    @classmethod
+    @contextmanager
+    def _dispatch_error(cls) -> Iterator[None]:
+        """Raise appropriate exception based on ClientError code."""
+        try:
+            yield None
+        except botoex.ClientError as e:
+            raise cls._get_exception(e)
+
+    @classmethod
+    def _get_exception(cls, error: botoex.ClientError) -> err.ClientError:
+        code = cls._get_error_code(error)
+        try:
+            ex_class = cast(Type[err.ClientError], getattr(err, code))
+        except AttributeError:  # pragma: no cover
+            # Type checks are enough to test this.
+            ex_class = err.ClientError
+        return ex_class(str(error), error.response, error.operation_name)
 
     @classmethod
     def _strip_prefixes(cls, item: Dict[str, Any]) -> ItemResult:
@@ -150,12 +142,12 @@ class Table:
 
     def _put_item(self, put_arg: PutArg) -> None:
         kwargs = put_arg.get_kwargs(self.table_name, self.primary_index)
-        with self._dispatch_client_error():
+        with self._dispatch_error():
             self._client.put_item(**kwargs)
 
     def _query(self, query_arg: QueryArg) -> List[ItemResult]:
         args = query_arg.get_kwargs(self.table_name, self.primary_index)
-        with self._dispatch_client_error():
+        with self._dispatch_error():
             query_res = self._client.query(**args)
         items = query_res.get('Items', [])
         return self._normalize_items(items)
@@ -172,7 +164,7 @@ class Table:
 
         """
         kwargs = update_arg.get_kwargs(self.table_name, self.primary_index)
-        with self._dispatch_client_error():
+        with self._dispatch_error():
             self._client.update_item(**kwargs)
 
     def batch_get(self, keys: Iterable[PrimaryKey],
@@ -222,7 +214,7 @@ class Table:
                 'ConsistentRead': consistent
             }
         }
-        with self._dispatch_client_error():
+        with self._dispatch_error():
             res = self._client.batch_get_item(RequestItems=request_items)
 
         responses = res.get('Responses', {})
@@ -256,7 +248,7 @@ class Table:
         """
         delete_arg = DeleteArg(pk, sk, idempotent=idempotent)
         kwargs = delete_arg.get_kwargs(self.table_name, self.primary_index)
-        with self._dispatch_client_error():
+        with self._dispatch_error():
             self._client.delete_item(**kwargs)
 
     def get(self, pk: PartitionKey, sk: SortKey,
@@ -277,7 +269,7 @@ class Table:
         """
         get_arg = GetArg(pk, sk, attributes=attributes, consistent=consistent)
         kwargs = get_arg.get_kwargs(self.table_name, self.primary_index)
-        with self._dispatch_client_error():
+        with self._dispatch_error():
             res = self._client.get_item(**kwargs)
         item = res.get('Item')
         if item:
@@ -416,11 +408,11 @@ class Table:
                              limit=limit)
         return self._query(query_arg)
 
-    def transact_write_items(self, args: Iterable[OpArg]) -> None:
+    def transact_write_items(self, op_args: List[OpArg]) -> None:
         """Write multiple items in a transaction.
 
         Args:
-            args: Write OP args.
+            op_args: Write operation arguments.
 
         Raises:
             dokklib_db.TransactionError if the transaction fails.
@@ -429,10 +421,10 @@ class Table:
 
         """
         transact_items = []
-        for a in args:
+        for a in op_args:
             kwargs = a.get_kwargs(self.table_name, self.primary_index)
             transact_items.append({a.op_name: kwargs})
-        with self._dispatch_client_error():
+        with self._dispatch_transaction_error(op_args):
             self._client.transact_write_items(TransactItems=transact_items)
 
     # Type checks are sufficient to test this function, so it's excluded from

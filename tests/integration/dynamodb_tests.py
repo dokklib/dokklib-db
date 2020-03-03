@@ -98,9 +98,18 @@ logging.info('Testing transact_write_items')
 table.transact_write_items([
     db.InsertArg(pk_alice, sk_order1),
     db.InsertArg(pk_book, sk_order1),
-    db.InsertArg(pk_alice, sk_order2),
-    db.InsertArg(pk_book, sk_order2)
+    db.InsertArg(pk_alice, sk_order2)
 ])
+
+logging.info('Testing transact_write_items error handling')
+try:
+    table.transact_write_items([
+        db.InsertArg(pk_alice, sk_order1),
+        db.InsertArg(pk_book, sk_order2)
+    ])
+except db.errors.TransactionCanceledException as e:
+    assert e.reasons[0] is db.errors.ConditionalCheckFailedException, e.reasons
+    assert e.reasons[1] is None, e.reasons
 
 logging.info('Testing batch_get')
 res = table.batch_get([

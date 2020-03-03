@@ -3,14 +3,11 @@
 
 # Flake 8 would complain about unused imports if it was enabled on this file.
 
+import dokklib_db.errors
+
 from dokklib_db.table import (
-    CapacityError,
-    ConditionalCheckFailedError,
     Table,
-    DatabaseError,
-    ItemResult,
-    TransactionError,
-    TransactionConflict
+    ItemResult
 )
 from dokklib_db.index import (
     GlobalIndex,

@@ -1,10 +1,12 @@
-import setuptools
+from setuptools import find_packages, setup
 
 
 with open('README.md') as f:
     long_description = f.read()
 
-setuptools.setup(
+print(find_packages(exclude=['tests*']))
+
+setup(
     name='dokklib_db',
     author='Agost Biro',
     author_email='agost+dokklib_db@dokknet.com',
@@ -12,7 +14,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://dokklib.com/libs/db/',
-    packages=['dokklib_db'],
+    packages=find_packages(exclude=['tests*']),
     use_scm_version=True,
     # Needed to let mypy use package for type hints
     zip_safe=False,
