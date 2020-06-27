@@ -18,7 +18,6 @@ from dokklib_db.op_args import Attributes, DeleteArg, GetArg, InsertArg, \
     OpArg, PutArg, QueryArg, UpdateArg
 from dokklib_db.serializer import Serializer
 
-
 ItemResult = Mapping[str, Any]
 
 
@@ -96,7 +95,12 @@ class Table:
         return item_copy
 
     def __init__(self, table_name: str,
-                 primary_index: Optional[GlobalIndex] = None):
+                 primary_index: Optional[GlobalIndex] = None,
+                 region_name: Optional[str] = None,
+                 endpoint_url: Optional[str] = None,
+                 use_ssl: Optional[str] = None,
+                 aws_access_key_id: Optional[str] = None,
+                 aws_secret_access_key: Optional[str] = None):
         """Initialize a Table instance.
 
         Args:
@@ -115,7 +119,15 @@ class Table:
 
         # The boto objects are lazy-initialzied. Connections are not created
         # until the first request.
-        self._client_handle = boto3.client('dynamodb')
+        session = boto3.session.Session()
+        credentials = session.get_credentials()
+        self._client_handle = boto3.client('dynamodb',
+                                           endpoint_url=endpoint_url,
+                                           region_name=region_name or session.region_name,
+                                           use_ssl=use_ssl or True,
+                                           aws_access_key_id=aws_access_key_id or credentials.access_key,
+                                           aws_secret_access_key=aws_secret_access_key or credentials.secret_key,
+                                           )
 
     @property
     def _client(self) -> 'botocore.client.DynamoDB':
@@ -400,7 +412,7 @@ class Table:
             attributes = [sk_name]
 
         key_condition = cond.Key(pk_name).eq(str(pk)) & \
-            cond.Key(sk_name).begins_with(str(sk))
+                        cond.Key(sk_name).begins_with(str(sk))
         query_arg = QueryArg(key_condition,
                              global_index=global_index,
                              attributes=attributes,
