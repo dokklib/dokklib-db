@@ -11,7 +11,7 @@ Dokklib-DB is a Python library for the DynamoDB single table pattern.
 - Easy error handling.
 - Full type hint & unit test coverage + integration testing.
 
-## [Documentation](https://dokklib.com/libs/db/)
+## [Documentation](https://github.com/dokklib/dokklib/tree/master/docs)
 
 ## Install
 
