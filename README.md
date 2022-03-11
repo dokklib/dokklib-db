@@ -82,6 +82,8 @@ table.transact_write_items([
 
 ## Status
 
-The library is in beta and under heavy development as I'm working on it while building a [serverless project](https://github.com/dokknet/dokknet-api) that relies on it.
+The project is no longer maintained.
+
+~The library is in beta and under heavy development as I'm working on it while building a [serverless project](https://github.com/dokknet/dokknet-api) that relies on it.
 I have only implemented parts of the DynamoDB API that I needed so far, but I'm planning on achieving full coverage.
-Feature and pull requests are welcome. (Please open an issue, before starting work on a pull request to avoid wasted effort.)
+Feature and pull requests are welcome. (Please open an issue, before starting work on a pull request to avoid wasted effort.)~
